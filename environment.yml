@@ -1,0 +1,21 @@
+name: neural-audio-effects
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - jupyter
+  - numpy
+  - scipy
+  - matplotlib
+  - pandas
+  - tqdm
+  - librosa
+  - pip
+  - pip:
+    - jams
+    - pretty_midi
+    - torch
+    - torchaudio
+    - neutone-sdk
