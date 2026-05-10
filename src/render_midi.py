@@ -28,8 +28,9 @@ def render_clip(
     output_path: Path,
     config: dict,
 ) -> None:
-    for item in track.items:
-        RPR.DeleteTrackMediaItem(track.id, item.id)
+    while RPR.GetTrackNumMediaItems(track.id) > 0:
+        item = RPR.GetTrackMediaItem(track.id, 0)
+        RPR.DeleteTrackMediaItem(track.id, item)
 
     RPR.SetOnlyTrackSelected(track.id)
     project.cursor_position = 0
@@ -41,6 +42,7 @@ def render_clip(
     project.time_selection = (0, duration)
 
     pid = project.id
+    RPR.GetSetProjectInfo(pid, "RENDER_REALTIME", 1, True)
     RPR.GetSetProjectInfo_String(pid, "RENDER_FILE", str(output_path.parent), True)
     RPR.GetSetProjectInfo_String(pid, "RENDER_PATTERN", output_path.stem, True)
     RPR.GetSetProjectInfo(pid, "RENDER_SRATE", config["sample_rate"], True)

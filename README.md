@@ -19,6 +19,15 @@ The trained model is exported as a VST plugin via [Neutone](https://neutone.spac
 
 Training data is sourced from [GuitarSet](https://guitarset.weebly.com/), a dataset of annotated guitar recordings recorded via direct input. The included note annotations are used to drive the VSTi directly.
 
+## Samples
+
+`00_BN1-129-Eb_comp` — bossa nova comping, Eb major, 129 BPM
+
+| | File |
+|---|---|
+| Guitar (input) | [00_BN1-129-Eb_comp_mix.wav](samples/00_BN1-129-Eb_comp_mix.wav) |
+| B3 organ render (target) | [00_BN1-129-Eb_comp.wav](samples/00_BN1-129-Eb_comp.wav) |
+
 ## Experiments
 
 | Name | VSTi | Status |
