@@ -1,0 +1,5 @@
+name: b3_organ
+template: reaper/b3_organ.rpp
+output_dir: data/rendered/b3_organ
+sample_rate: 44100
+bit_depth: 32

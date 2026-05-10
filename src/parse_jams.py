@@ -30,7 +30,7 @@ def parse_jams_to_midi(jams_path: Path, output_path: Path) -> None:
     midi.write(str(output_path))
 
 
-def process_all(annotation_dir: Path, output_dir: Path) -> None:
+def convert_all(annotation_dir: Path, output_dir: Path) -> None:
     annotation_files = sorted(annotation_dir.glob('*.jams'))
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -46,7 +46,7 @@ def process_all(annotation_dir: Path, output_dir: Path) -> None:
 
 if __name__ == '__main__':
     repo_root = Path(__file__).parent.parent
-    process_all(
+    convert_all(
         annotation_dir=repo_root / 'data' / 'guitarset' / 'annotation',
         output_dir=repo_root / 'data' / 'midi',
     )

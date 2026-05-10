@@ -13,9 +13,11 @@ dependencies:
   - tqdm
   - librosa
   - pip
+  - pyyaml
   - pip:
     - jams
     - pretty_midi
     - torch
     - torchaudio
     - neutone-sdk
+    - python-reapy
