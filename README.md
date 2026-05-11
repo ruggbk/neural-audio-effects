@@ -1,4 +1,6 @@
 # neural-audio-effects
+**Author:** Brandon Rugg
+
 
 Experimental machine learning–based audio effect that learns timbral transformations from guitar input using virtual instruments as training targets.
 
@@ -35,7 +37,7 @@ Note: the model output below is from an early checkpoint (21 of 100 planned epoc
 
 | Name | VSTi | Status |
 |---|---|---|
-| b3_organ | Hammond B3 (Vintage Organs via Kontakt) | Training in progress |
+| b3_organ | Hammond B3 (Vintage Organs via Kontakt) | Training in progress (early checkpoint exported) |
 
 ## Setup
 
@@ -46,7 +48,8 @@ Note: the model output below is from an early checkpoint (21 of 100 planned epoc
 3. Open the relevant Reaper template from `reaper/` with your VSTi configured
 4. Run `notebooks/02_pipeline.ipynb` to generate MIDI and render VSTi audio
 5. Run `python src/train.py` to train the model (GPU recommended)
+6. Run `python src/neutone_wrapper.py` to export the trained model as a Neutone VST plugin
 
 ## Status
 
-In progress — pipeline complete, training in progress. Neutone export pending.
+Pipeline complete. Early checkpoint (21 epochs) exported to `models/neutone_export/` and verified working in Reaper. Full training run in progress.

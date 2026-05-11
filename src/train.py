@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 import torch
 import torch.nn.functional as F
@@ -10,7 +11,7 @@ from model import TCN
 
 
 BATCH_SIZE = 32
-LR = 1e-3
+LR = 1e-4
 EPOCHS = 100
 # num_workers > 0 can cause issues on Windows; 0 is safe
 NUM_WORKERS = 0
@@ -27,9 +28,16 @@ def spectral_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     return sum(losses)
 
 
-def train(config_path: Path, repo_root: Path) -> None:
+def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None) -> None:
+    """Train the TCN model.
+
+    Args:
+        config_path: Path to the experiment YAML config.
+        repo_root: Root of the repository.
+        resume_from: Optional path to a checkpoint to resume training from.
+    """
     config = yaml.safe_load(open(config_path))
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
     train_ds, val_ds = make_datasets(
@@ -41,7 +49,12 @@ def train(config_path: Path, repo_root: Path) -> None:
     print(f"Train: {len(train_ds):,} windows | Val: {len(val_ds):,} windows")
 
     model = TCN().to(device)
+    if resume_from is not None:
+        model.load_state_dict(torch.load(resume_from, map_location=device))
+        print(f"Resumed from {resume_from}")
+
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
 
     checkpoint_path = repo_root / "models" / f"{config['name']}.pt"
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
@@ -50,16 +63,14 @@ def train(config_path: Path, repo_root: Path) -> None:
     for epoch in range(1, EPOCHS + 1):
         model.train()
         train_loss = 0.0
-        for batch_idx, (guitar, rendered) in enumerate(train_loader):
+        for guitar, rendered in train_loader:
             guitar, rendered = guitar.to(device), rendered.to(device)
             pred = model(guitar)
-            loss = F.mse_loss(pred, rendered)
+            loss = F.mse_loss(pred, rendered) + spectral_loss(pred, rendered)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
-            if batch_idx % 100 == 0:
-                print(f"  batch {batch_idx}/{len(train_loader)}", flush=True)
         train_loss /= len(train_loader)
 
         model.eval()
@@ -68,10 +79,11 @@ def train(config_path: Path, repo_root: Path) -> None:
             for guitar, rendered in val_loader:
                 guitar, rendered = guitar.to(device), rendered.to(device)
                 pred = model(guitar)
-                val_loss += F.mse_loss(pred, rendered).item()
+                val_loss += (F.mse_loss(pred, rendered) + spectral_loss(pred, rendered)).item()
         val_loss /= len(val_loader)
 
         print(f"Epoch {epoch:3d} | train {train_loss:.4f} | val {val_loss:.4f}")
+        scheduler.step(val_loss)
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -86,4 +98,5 @@ if __name__ == "__main__":
     train(
         config_path=repo_root / "configs" / "b3_organ.yaml",
         repo_root=repo_root,
+        # resume_from=repo_root / "models" / "b3_organ_smoke.pt",
     )
