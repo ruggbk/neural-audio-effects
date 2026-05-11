@@ -7,7 +7,9 @@ from reapy import reascript_api as RPR
 import yaml
 
 
+# Allows reverb/release to decay before the render ends
 TAIL_SECONDS = 2.0
+# Reaper action: "Render project, using the most recent render settings"
 RENDER_ACTION = 42230
 
 
@@ -28,6 +30,11 @@ def render_clip(
     output_path: Path,
     config: dict,
 ) -> None:
+    """Render a single MIDI file through the VSTi track and write a WAV to output_path.
+
+    Clears any existing media items from the track before inserting the new MIDI clip.
+    Blocks until the output file exists or a deadline is reached.
+    """
     while RPR.GetTrackNumMediaItems(track.id) > 0:
         item = RPR.GetTrackMediaItem(track.id, 0)
         RPR.DeleteTrackMediaItem(track.id, item)

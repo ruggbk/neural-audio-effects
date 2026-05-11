@@ -23,16 +23,19 @@ Training data is sourced from [GuitarSet](https://guitarset.weebly.com/), a data
 
 `00_BN1-129-Eb_comp` — bossa nova comping, Eb major, 129 BPM
 
+Note: the model output below is from an early checkpoint (21 of 100 planned epochs). It captures some organ character but training is not yet complete.
+
 | | File |
 |---|---|
 | Guitar (input) | [00_BN1-129-Eb_comp_mix.wav](samples/00_BN1-129-Eb_comp_mix.wav) |
 | B3 organ render (target) | [00_BN1-129-Eb_comp.wav](samples/00_BN1-129-Eb_comp.wav) |
+| Model output (21 epochs) | [00_BN1-129-Eb_comp_predicted.wav](samples/00_BN1-129-Eb_comp_predicted.wav) |
 
 ## Experiments
 
 | Name | VSTi | Status |
 |---|---|---|
-| b3_organ | Hammond B3 (Vintage Organs via Kontakt) | Rendering |
+| b3_organ | Hammond B3 (Vintage Organs via Kontakt) | Training in progress |
 
 ## Setup
 
@@ -42,7 +45,8 @@ Training data is sourced from [GuitarSet](https://guitarset.weebly.com/), a data
 2. Download GuitarSet annotations and mono pickup mix audio to `data/guitarset/`
 3. Open the relevant Reaper template from `reaper/` with your VSTi configured
 4. Run `notebooks/02_pipeline.ipynb` to generate MIDI and render VSTi audio
+5. Run `python src/train.py` to train the model (GPU recommended)
 
 ## Status
 
-In progress — pipeline complete, training in development.
+In progress — pipeline complete, training in progress. Neutone export pending.

@@ -1,8 +1,8 @@
 import random
 from pathlib import Path
 
+import soundfile as sf
 import torch
-import torchaudio
 from torch.utils.data import Dataset
 
 
@@ -21,9 +21,8 @@ def _build_pairs(rendered_dir: Path, guitar_dir: Path) -> list[tuple[Path, Path]
     return pairs
 
 
-def _count_windows(path: Path) -> int:
-    info = torchaudio.info(str(path))
-    n_samples = info.num_frames
+def _count_windows(guitar_path: Path, rendered_path: Path) -> int:
+    n_samples = min(sf.info(str(guitar_path)).frames, sf.info(str(rendered_path)).frames)
     if n_samples < WINDOW_SIZE:
         return 0
     return (n_samples - WINDOW_SIZE) // HOP_SIZE + 1
@@ -33,7 +32,7 @@ class AudioPairDataset(Dataset):
     def __init__(self, pairs: list[tuple[Path, Path]]):
         self.index: list[tuple[Path, Path, int]] = []
         for guitar_path, rendered_path in pairs:
-            n = _count_windows(guitar_path)
+            n = _count_windows(guitar_path, rendered_path)
             for i in range(n):
                 self.index.append((guitar_path, rendered_path, i))
 
@@ -42,16 +41,16 @@ class AudioPairDataset(Dataset):
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         guitar_path, rendered_path, window_idx = self.index[idx]
-        frame_offset = window_idx * HOP_SIZE
+        start = window_idx * HOP_SIZE
 
-        guitar, _ = torchaudio.load(
-            str(guitar_path), frame_offset=frame_offset, num_frames=WINDOW_SIZE
-        )
-        rendered, _ = torchaudio.load(
-            str(rendered_path), frame_offset=frame_offset, num_frames=WINDOW_SIZE
-        )
+        # always_2d=True ensures consistent (frames, channels) shape for mono and stereo files
+        guitar, _ = sf.read(str(guitar_path), start=start, stop=start + WINDOW_SIZE, always_2d=True)
+        rendered, _ = sf.read(str(rendered_path), start=start, stop=start + WINDOW_SIZE, always_2d=True)
 
-        return guitar[:1], rendered[:1]
+        guitar_t = torch.from_numpy(guitar.T[:1]).float()
+        rendered_t = torch.from_numpy(rendered.T[:1]).float()
+
+        return guitar_t, rendered_t
 
 
 def make_datasets(
@@ -59,6 +58,13 @@ def make_datasets(
     guitar_dir: Path,
     val_fraction: float = 0.1,
 ) -> tuple[AudioPairDataset, AudioPairDataset]:
+    """Build train and validation datasets from matched guitar/rendered audio pairs.
+
+    Pairs are shuffled with a fixed seed before splitting so the split is
+    deterministic but not alphabetically ordered by filename.
+
+    Returns (train_dataset, val_dataset).
+    """
     pairs = _build_pairs(rendered_dir, guitar_dir)
     rng = random.Random(SEED)
     rng.shuffle(pairs)
