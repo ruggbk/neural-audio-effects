@@ -1,18 +1,20 @@
-name: b3_organ
-display_name: B3 Organ Effect
-version: "0.1.0"
+name: b3_organ_v2
+display_name: B3 Organ Effect v2
+version: "0.2.0"
 short_description: TCN trained to transform guitar into Hammond B3 organ character.
 long_description: >
   A Temporal Convolutional Network trained on paired guitar and Hammond B3
   organ audio derived from GuitarSet. Input is clean DI guitar; output
   approximates the timbral character of a Hammond B3 through a rotary speaker.
+  V2 improves on v1 with RMS-derived MIDI velocity and shortened note durations
+  to better match the guitar's natural envelope.
 technical_description: >
   Dilated causal TCN (2 stacks x 10 layers, 32 channels, kernel size 3).
   Receptive field: 4093 samples (~93ms at 44100Hz).
   Trained with MSE + multi-scale spectral loss on GuitarSet audio paired
   with MIDI-driven VSTi renders.
 tags: [guitar, organ, timbral transfer, TCN]
-template: reaper/b3_organ.rpp
-output_dir: data/rendered/b3_organ
+template: reaper/b3_organ_v2.rpp
+output_dir: data/rendered/b3_organ_v2
 sample_rate: 44100
 bit_depth: 32

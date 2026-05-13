@@ -98,5 +98,5 @@ if __name__ == "__main__":
     train(
         config_path=repo_root / "configs" / "b3_organ.yaml",
         repo_root=repo_root,
-        # resume_from=repo_root / "models" / "b3_organ_smoke.pt",
+        resume_from=repo_root / "models" / "b3_organ_smoke.pt",
     )

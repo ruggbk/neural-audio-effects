@@ -1,7 +1,9 @@
+import argparse
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import torch
+import yaml
 from torch import Tensor
 from neutone_sdk import WaveformToWaveformBase, NeutoneParameter
 from neutone_sdk.utils import save_neutone_model
@@ -9,36 +11,53 @@ from neutone_sdk.utils import save_neutone_model
 from model import TCN
 
 
-class B3OrganWrapper(WaveformToWaveformBase):
+class TCNWrapper(WaveformToWaveformBase):
+    # TorchScript does not inherit class attribute type annotations from parent classes.
+    # Redeclare SDK attributes and our own typed attributes here as a workaround.
+    # https://github.com/pytorch/pytorch/issues/51041#issuecomment-767061194
+    neutone_parameters_metadata: Dict[
+        str, Dict[str, Union[int, float, str, bool, List[str], List[int]]]
+    ]
+    remapped_params: Dict[str, Tensor]
+    neutone_parameter_names: List[str]
+    _meta_name: str
+    _meta_version: str
+    _meta_short_description: str
+    _meta_long_description: str
+    _meta_technical_description: str
+    _meta_tags: List[str]
+    _meta_sample_rate: int
+
+    def __init__(self, model: TCN, meta: dict):
+        self._meta_name = meta["display_name"]
+        self._meta_version = meta["version"]
+        self._meta_short_description = meta["short_description"]
+        self._meta_long_description = meta["long_description"]
+        self._meta_technical_description = meta["technical_description"]
+        self._meta_tags = meta["tags"]
+        self._meta_sample_rate = meta["sample_rate"]
+        super().__init__(model)
+
     def get_model_name(self) -> str:
-        return "B3 Organ Effect"
+        return self._meta_name
 
     def get_model_authors(self) -> List[str]:
         return ["Brandon Rugg"]
 
     def get_model_version(self) -> str:
-        return "0.1.0"
+        return self._meta_version
 
     def get_model_short_description(self) -> str:
-        return "TCN trained to transform guitar into Hammond B3 organ character."
+        return self._meta_short_description
 
     def get_model_long_description(self) -> str:
-        return (
-            "A Temporal Convolutional Network trained on paired guitar and Hammond B3 "
-            "organ audio derived from GuitarSet. Input is clean DI guitar; output "
-            "approximates the timbral character of a Hammond B3 through a rotary speaker."
-        )
+        return self._meta_long_description
 
     def get_technical_description(self) -> str:
-        return (
-            "Dilated causal TCN (2 stacks x 10 layers, 32 channels, kernel size 3). "
-            "Receptive field: 4093 samples (~93ms at 44100Hz). "
-            "Trained with MSE + multi-scale spectral loss on GuitarSet audio paired "
-            "with MIDI-driven VSTi renders."
-        )
+        return self._meta_technical_description
 
     def get_tags(self) -> List[str]:
-        return ["guitar", "organ", "timbral transfer", "TCN"]
+        return self._meta_tags
 
     def get_neutone_parameters(self) -> List[NeutoneParameter]:
         return []
@@ -50,7 +69,7 @@ class B3OrganWrapper(WaveformToWaveformBase):
         return True
 
     def get_native_sample_rates(self) -> List[int]:
-        return [44100]
+        return [self._meta_sample_rate]
 
     def get_native_buffer_sizes(self) -> List[int]:
         return []
@@ -64,13 +83,19 @@ class B3OrganWrapper(WaveformToWaveformBase):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True, help="Path to experiment YAML config")
+    args = parser.parse_args()
+
     repo_root = Path(__file__).parent.parent
-    checkpoint_path = repo_root / "models" / "b3_organ_smoke.pt"
-    output_dir = repo_root / "models" / "neutone_export"
+    config = yaml.safe_load(open(args.config))
+
+    checkpoint_path = repo_root / "models" / f"{config['name']}.pt"
+    output_dir = repo_root / "models" / "neutone_export" / config["name"]
 
     tcn = TCN()
     tcn.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
 
-    wrapper = B3OrganWrapper(tcn)
+    wrapper = TCNWrapper(tcn, config)
     save_neutone_model(wrapper, output_dir, dump_samples=False)
     print(f"Exported to {output_dir}")

@@ -221,3 +221,6 @@ __marimo__/
 data/
 models/
 reaper/media/
+
+# Claude Code
+CLAUDE.md
