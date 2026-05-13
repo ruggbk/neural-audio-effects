@@ -94,9 +94,15 @@ def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/b3_organ.yaml")
+    parser.add_argument("--resume-from", default=None)
+    args = parser.parse_args()
+
     repo_root = Path(__file__).parent.parent
     train(
-        config_path=repo_root / "configs" / "b3_organ.yaml",
+        config_path=repo_root / args.config,
         repo_root=repo_root,
-        resume_from=repo_root / "models" / "b3_organ_smoke.pt",
+        resume_from=Path(args.resume_from) if args.resume_from else None,
     )

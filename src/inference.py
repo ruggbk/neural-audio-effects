@@ -33,7 +33,7 @@ def run_inference(model: TCN, input_path: Path, output_path: Path) -> None:
 
 if __name__ == "__main__":
     repo_root = Path(__file__).parent.parent
-    model = load_model(repo_root / "models" / "b3_organ_smoke.pt")
+    model = load_model(repo_root / "models" / "b3_organ_v2.pt")
     run_inference(
         model=model,
         input_path=repo_root / "data" / "guitarset" / "audio" / "00_BN1-129-Eb_comp_mix.wav",

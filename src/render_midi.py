@@ -1,3 +1,4 @@
+import tempfile
 import time
 from pathlib import Path
 
@@ -8,7 +9,7 @@ import yaml
 
 
 # Allows reverb/release to decay before the render ends
-TAIL_SECONDS = 2.0
+TAIL_SECONDS = 1.0
 # Reaper action: "Render project, using the most recent render settings"
 RENDER_ACTION = 42230
 
@@ -23,6 +24,19 @@ def get_vsti_track(project: reapy.Project) -> reapy.Track:
     return project.tracks[0]
 
 
+def _prepare_midi(midi_path: Path, duration_scale: float, min_duration_s: float, onset_offset_s: float) -> Path:
+    pm = pretty_midi.PrettyMIDI(str(midi_path))
+    for instrument in pm.instruments:
+        for note in instrument.notes:
+            new_dur = max((note.end - note.start) * duration_scale, min_duration_s)
+            note.start = max(0.0, note.start - onset_offset_s)
+            note.end = note.start + new_dur
+    tmp = tempfile.NamedTemporaryFile(suffix=".mid", delete=False)
+    pm.write(tmp.name)
+    tmp.close()
+    return Path(tmp.name)
+
+
 def render_clip(
     project: reapy.Project,
     track: reapy.Track,
@@ -35,15 +49,20 @@ def render_clip(
     Clears any existing media items from the track before inserting the new MIDI clip.
     Blocks until the output file exists or a deadline is reached.
     """
+    duration_scale = config.get("duration_scale", 1.0)
+    min_duration_s = config.get("min_duration_s", 0.05)
+    onset_offset_s = config.get("onset_offset_s", 0.0)
+    insert_path = _prepare_midi(midi_path, duration_scale, min_duration_s, onset_offset_s)
+
     while RPR.GetTrackNumMediaItems(track.id) > 0:
         item = RPR.GetTrackMediaItem(track.id, 0)
         RPR.DeleteTrackMediaItem(track.id, item)
 
     RPR.SetOnlyTrackSelected(track.id)
     project.cursor_position = 0
-    RPR.InsertMedia(str(midi_path), 0)
+    RPR.InsertMedia(str(insert_path), 0)
 
-    pm = pretty_midi.PrettyMIDI(str(midi_path))
+    pm = pretty_midi.PrettyMIDI(str(insert_path))
     duration = pm.get_end_time() + TAIL_SECONDS
 
     project.time_selection = (0, duration)
@@ -83,8 +102,13 @@ def render_all(midi_dir: Path, config: dict, repo_root: Path) -> None:
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/b3_organ.yaml")
+    args = parser.parse_args()
+
     repo_root = Path(__file__).parent.parent
-    config = load_config(repo_root / "configs" / "b3_organ.yaml")
+    config = load_config(repo_root / args.config)
     render_all(
         midi_dir=repo_root / "data" / "midi",
         config=config,

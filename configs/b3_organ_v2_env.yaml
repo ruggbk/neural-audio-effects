@@ -1,4 +1,4 @@
-name: b3_organ_v2
+name: b3_organ_v2_env
 display_name: B3 Organ Effect v2
 version: "0.2.0"
 short_description: TCN trained to transform guitar into Hammond B3 organ character.
@@ -15,7 +15,7 @@ technical_description: >
   with MIDI-driven VSTi renders.
 tags: [guitar, organ, timbral transfer, TCN]
 template: reaper/b3_organ_v2.rpp
-output_dir: data/rendered/b3_organ_v2
+output_dir: data/rendered/b3_organ_v2_env
 sample_rate: 44100
 bit_depth: 32
 duration_scale: 0.4

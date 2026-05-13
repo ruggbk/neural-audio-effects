@@ -53,7 +53,8 @@ def parse_jams_to_midi(jams_path: Path, output_path: Path, guitar_dir: Path) -> 
     for track in jam.search(namespace='note_midi'):
         for obs in track.data:
             onset = obs.time
-            offset = onset + obs.duration
+            duration = obs.duration
+            offset = onset + duration
             pitch = int(round(obs.value))
             notes.append((onset, offset, pitch))
             if use_velocity:
