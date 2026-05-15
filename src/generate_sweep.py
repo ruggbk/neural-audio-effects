@@ -11,7 +11,7 @@ from pathlib import Path
 import pretty_midi
 
 
-NOTE_DURATION_S = 4.0
+NOTE_DURATION_S = 2.0
 GAP_S = 0.5
 MIDI_MIN = 36   # C2
 MIDI_MAX = 96   # C7
