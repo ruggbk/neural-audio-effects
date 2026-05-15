@@ -93,7 +93,11 @@ if __name__ == "__main__":
     checkpoint_path = repo_root / "models" / f"{config['name']}.pt"
     output_dir = repo_root / "models" / "neutone_export" / config["name"]
 
-    tcn = TCN()
+    tcn = TCN(
+        channels=config.get("channels", 32),
+        n_layers=config.get("n_layers", 10),
+        n_stacks=config.get("n_stacks", 2),
+    )
     tcn.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
 
     wrapper = TCNWrapper(tcn, config)

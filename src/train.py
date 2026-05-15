@@ -1,3 +1,5 @@
+import csv
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -43,12 +45,20 @@ def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None
     train_ds, val_ds = make_datasets(
         rendered_dir=repo_root / config["output_dir"],
         guitar_dir=repo_root / "data" / "guitarset" / "audio",
+        midi_dir=repo_root / "data" / "midi",
+        monophonic_only=config.get("monophonic_only", False),
     )
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
     print(f"Train: {len(train_ds):,} windows | Val: {len(val_ds):,} windows")
 
-    model = TCN().to(device)
+    model = TCN(
+        channels=config.get("channels", 32),
+        n_layers=config.get("n_layers", 10),
+        n_stacks=config.get("n_stacks", 2),
+    ).to(device)
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f"Model: {n_params:,} parameters")
     if resume_from is not None:
         model.load_state_dict(torch.load(resume_from, map_location=device))
         print(f"Resumed from {resume_from}")
@@ -58,9 +68,12 @@ def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None
 
     checkpoint_path = repo_root / "models" / f"{config['name']}.pt"
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path = checkpoint_path.with_suffix(".csv")
+    log_exists = log_path.exists()
     best_val_loss = float("inf")
 
     for epoch in range(1, EPOCHS + 1):
+        t0 = time.time()
         model.train()
         train_loss = 0.0
         for guitar, rendered in train_loader:
@@ -82,8 +95,17 @@ def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None
                 val_loss += (F.mse_loss(pred, rendered) + spectral_loss(pred, rendered)).item()
         val_loss /= len(val_loader)
 
+        epoch_time = time.time() - t0
+        lr = optimizer.param_groups[0]["lr"]
         print(f"Epoch {epoch:3d} | train {train_loss:.4f} | val {val_loss:.4f}")
         scheduler.step(val_loss)
+
+        with open(log_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            if not log_exists:
+                writer.writerow(["epoch", "train_loss", "val_loss", "lr", "epoch_time_s"])
+                log_exists = True
+            writer.writerow([epoch, f"{train_loss:.6f}", f"{val_loss:.6f}", f"{lr:.2e}", f"{epoch_time:.1f}"])
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss

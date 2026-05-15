@@ -1,0 +1,23 @@
+name: harpsichord
+display_name: Harpsichord Effect
+version: "0.1.0"
+short_description: TCN trained to transform guitar into harpsichord character.
+long_description: >
+  A Temporal Convolutional Network trained on paired guitar and harpsichord
+  audio derived from GuitarSet. Input is clean DI guitar; output approximates
+  the timbral character of a harpsichord.
+  Uses Kontakt Factory Library "Harpsichord" (Orchestral) as the target VSTi.
+technical_description: >
+  Dilated causal TCN (2 stacks x 10 layers, 32 channels, kernel size 3).
+  Receptive field: 4093 samples (~93ms at 44100Hz).
+  Trained with MSE + multi-scale spectral loss on GuitarSet audio paired
+  with MIDI-driven VSTi renders.
+tags: [guitar, harpsichord, timbral transfer, TCN]
+template: reaper/harpsichord.rpp
+output_dir: data/rendered/harpsichord
+sample_rate: 44100
+bit_depth: 32
+duration_scale: 1.0
+min_duration_s: 0.05
+onset_offset_s: 0.018
+monophonic_only: false
