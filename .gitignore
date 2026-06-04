@@ -224,6 +224,7 @@ reaper/media/
 
 # Auto-generated training samples (curated samples in samples/ root are tracked)
 samples/training/
+samples/old/
 
 # Claude Code
 CLAUDE.md
