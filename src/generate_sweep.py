@@ -12,10 +12,10 @@ import pretty_midi
 
 
 NOTE_DURATION_S = 2.0
-GAP_S = 0.5
-MIDI_MIN = 36   # C2
-MIDI_MAX = 96   # C7
-VELOCITIES = [64, 100, 127]
+GAP_S = 0.25
+MIDI_MIN = 38   # C2 = 36
+MIDI_MAX = 88   # C7 = 96
+VELOCITIES = [16, 32, 64, 80, 100, 127]
 
 
 def generate_sweep(output_path: Path) -> None:

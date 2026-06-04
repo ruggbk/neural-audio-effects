@@ -8,7 +8,9 @@ from torch import Tensor
 from neutone_sdk import WaveformToWaveformBase, NeutoneParameter
 from neutone_sdk.utils import save_neutone_model
 
-from model import TCN
+import torch.nn as nn
+
+from model import TCN, WaveUNet
 
 
 class TCNWrapper(WaveformToWaveformBase):
@@ -28,7 +30,7 @@ class TCNWrapper(WaveformToWaveformBase):
     _meta_tags: List[str]
     _meta_sample_rate: int
 
-    def __init__(self, model: TCN, meta: dict):
+    def __init__(self, model: nn.Module, meta: dict):
         self._meta_name = meta["display_name"]
         self._meta_version = meta["version"]
         self._meta_short_description = meta["short_description"]
@@ -93,13 +95,22 @@ if __name__ == "__main__":
     checkpoint_path = repo_root / "models" / f"{config['name']}.pt"
     output_dir = repo_root / "models" / "neutone_export" / config["name"]
 
-    tcn = TCN(
-        channels=config.get("channels", 32),
-        n_layers=config.get("n_layers", 10),
-        n_stacks=config.get("n_stacks", 2),
-    )
-    tcn.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
+    model_type = config.get("model_type", "tcn")
+    if model_type == "waveunet":
+        model = WaveUNet(
+            channels=config.get("channels", 16),
+            depth=config.get("depth", 3),
+            kernel_size=config.get("kernel_size", 15),
+            bottleneck_layers=config.get("bottleneck_layers", 8),
+        )
+    else:
+        model = TCN(
+            channels=config.get("channels", 32),
+            n_layers=config.get("n_layers", 10),
+            n_stacks=config.get("n_stacks", 2),
+        )
+    model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
 
-    wrapper = TCNWrapper(tcn, config)
+    wrapper = TCNWrapper(model, config)
     save_neutone_model(wrapper, output_dir, dump_samples=False)
     print(f"Exported to {output_dir}")

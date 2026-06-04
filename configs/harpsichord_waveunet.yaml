@@ -1,0 +1,27 @@
+name: harpsichord_waveunet
+display_name: Harpsichord Effect (Wave-U-Net)
+version: "0.1.0"
+short_description: Wave-U-Net trained to transform guitar into harpsichord character.
+long_description: >
+  A causal Wave-U-Net trained on paired guitar and harpsichord audio derived from
+  GuitarSet. Input is clean DI guitar; output approximates the timbral character
+  of a harpsichord. Uses Kontakt Factory Library "Harpsichord" (Orchestral).
+technical_description: >
+  Causal Wave-U-Net: 3-level encoder (stride-2 Conv1d, kernel 15), dilated TCN
+  bottleneck (8 layers, channels 128), skip-connected decoder. ~200k parameters.
+  Bottleneck receptive field covers the full 4096-sample training window.
+  Trained with MSE + multi-scale spectral loss + mel spectrogram loss.
+tags: [guitar, harpsichord, timbral transfer, Wave-U-Net]
+template: reaper/harpsichord.rpp
+output_dir: data/rendered/harpsichord
+sample_rate: 44100
+bit_depth: 32
+duration_scale: 1.0
+min_duration_s: 0.05
+onset_offset_s: 0.018
+monophonic_only: true
+model_type: waveunet
+channels: 16
+depth: 3
+kernel_size: 15
+bottleneck_layers: 8

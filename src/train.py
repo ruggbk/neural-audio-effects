@@ -3,35 +3,62 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import librosa
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import yaml
 
 from dataset import make_datasets
-from model import TCN
+from inference import run_inference
+from model import TCN, WaveUNet
 
 
 BATCH_SIZE = 32
 LR = 1e-4
 EPOCHS = 100
+SAMPLE_EVERY = 5
 # num_workers > 0 can cause issues on Windows; 0 is safe
 NUM_WORKERS = 0
 
+SAMPLE_CLIPS = [
+    "00_BN1-129-Eb_comp_mix.wav",
+    "00_Funk2-108-Eb_solo_mix.wav",
+]
+
 
 def spectral_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Multi-scale magnitude spectrogram loss across three FFT sizes."""
+    """Multi-scale magnitude spectrogram loss across four FFT sizes."""
     losses = []
-    for n_fft in [512, 1024, 2048]:
+    for n_fft in [256, 512, 1024, 2048]:
         window = torch.hann_window(n_fft, device=pred.device)
         pred_mag = torch.stft(pred.squeeze(1), n_fft=n_fft, window=window, return_complex=True).abs()
         target_mag = torch.stft(target.squeeze(1), n_fft=n_fft, window=window, return_complex=True).abs()
         losses.append(F.l1_loss(pred_mag, target_mag))
-    return sum(losses)
+    return sum(losses) / len(losses)
+
+
+MEL_N_FFT = 2048
+MEL_N_MELS = 128
+MEL_SAMPLE_RATE = 44100
+_MEL_FB = torch.from_numpy(
+    librosa.filters.mel(sr=MEL_SAMPLE_RATE, n_fft=MEL_N_FFT, n_mels=MEL_N_MELS)
+).float()
+
+
+def mel_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Perceptual loss on mel-scaled magnitude spectrograms."""
+    window = torch.hann_window(MEL_N_FFT, device=pred.device)
+    pred_spec = torch.stft(pred.squeeze(1), n_fft=MEL_N_FFT, window=window, return_complex=True).abs()
+    target_spec = torch.stft(target.squeeze(1), n_fft=MEL_N_FFT, window=window, return_complex=True).abs()
+    mel_fb = _MEL_FB.to(pred.device)
+    pred_mel = torch.matmul(mel_fb, pred_spec)
+    target_mel = torch.matmul(mel_fb, target_spec)
+    return F.l1_loss(pred_mel, target_mel)
 
 
 def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None) -> None:
-    """Train the TCN model.
+    """Train a TCN or WaveUNet model.
 
     Args:
         config_path: Path to the experiment YAML config.
@@ -52,11 +79,20 @@ def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
     print(f"Train: {len(train_ds):,} windows | Val: {len(val_ds):,} windows")
 
-    model = TCN(
-        channels=config.get("channels", 32),
-        n_layers=config.get("n_layers", 10),
-        n_stacks=config.get("n_stacks", 2),
-    ).to(device)
+    model_type = config.get("model_type", "tcn")
+    if model_type == "waveunet":
+        model = WaveUNet(
+            channels=config.get("channels", 16),
+            depth=config.get("depth", 3),
+            kernel_size=config.get("kernel_size", 15),
+            bottleneck_layers=config.get("bottleneck_layers", 8),
+        ).to(device)
+    else:
+        model = TCN(
+            channels=config.get("channels", 32),
+            n_layers=config.get("n_layers", 10),
+            n_stacks=config.get("n_stacks", 2),
+        ).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Model: {n_params:,} parameters")
     if resume_from is not None:
@@ -79,7 +115,7 @@ def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None
         for guitar, rendered in train_loader:
             guitar, rendered = guitar.to(device), rendered.to(device)
             pred = model(guitar)
-            loss = F.mse_loss(pred, rendered) + spectral_loss(pred, rendered)
+            loss = 0.1 * F.mse_loss(pred, rendered) + spectral_loss(pred, rendered) + mel_loss(pred, rendered)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -92,7 +128,7 @@ def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None
             for guitar, rendered in val_loader:
                 guitar, rendered = guitar.to(device), rendered.to(device)
                 pred = model(guitar)
-                val_loss += (F.mse_loss(pred, rendered) + spectral_loss(pred, rendered)).item()
+                val_loss += (0.1 * F.mse_loss(pred, rendered) + spectral_loss(pred, rendered) + mel_loss(pred, rendered)).item()
         val_loss /= len(val_loader)
 
         epoch_time = time.time() - t0
@@ -111,6 +147,19 @@ def train(config_path: Path, repo_root: Path, resume_from: Optional[Path] = None
             best_val_loss = val_loss
             torch.save(model.state_dict(), checkpoint_path)
             print(f"           -> saved checkpoint")
+
+        if epoch % SAMPLE_EVERY == 0:
+            model.eval()
+            model.cpu()
+            sample_dir = repo_root / "samples" / "training" / config["name"]
+            sample_dir.mkdir(parents=True, exist_ok=True)
+            for clip in SAMPLE_CLIPS:
+                input_path = repo_root / "data" / "guitarset" / "audio" / clip
+                stem = Path(clip).stem
+                output_path = sample_dir / f"epoch_{epoch:03d}_{stem}.wav"
+                run_inference(model, input_path, output_path)
+            model.to(device)
+            print(f"           -> samples written to {sample_dir}")
 
     print(f"Done. Best val loss: {best_val_loss:.4f}")
 
